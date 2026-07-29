@@ -318,7 +318,7 @@ const BulletinPrintLayout = forwardRef<HTMLDivElement, { data: any, refs?: { pag
   // Auto-fit: first add columns, then shrink fonts as a last resort
   const MIN_FIT_SCALE = 0.65;
   const [announceFitScale, setAnnounceFitScale] = useState(1);
-  const [autoColumns, setAutoColumns] = useState(0); // 0 = use default, 3/4 = forced column count
+  const [autoColumns, setAutoColumns] = useState(0); // 0 = use default, otherwise a forced column count
 
   // Announcements marked web-only never reach paper; everything below
   // (column auto-fit, grouping, the section header) works off this list.
@@ -338,6 +338,12 @@ const BulletinPrintLayout = forwardRef<HTMLDivElement, { data: any, refs?: { pag
   const isHeavyContent = announcementTotalChars > 2000;
   const isLightContent = announcementTotalChars < 800;
 
+  // Conservative starting guess; the auto-fit effect below adds columns one at
+  // a time only when content actually overflows, so short lists keep fewer,
+  // wider columns instead of always spreading across four.
+  const defaultCols = announcementCount <= 2 || isLightContent ? 1 : (announcementCount >= 6 || isHeavyContent) ? 3 : 2;
+  const announceColumnCount = Math.max(autoColumns, defaultCols);
+
   useEffect(() => {
     setAnnounceFitScale(1);
     setAutoColumns(0);
@@ -351,9 +357,9 @@ const BulletinPrintLayout = forwardRef<HTMLDivElement, { data: any, refs?: { pag
       const overflowH = el.scrollWidth - el.clientWidth;
       if (overflowV <= 2 && overflowH <= 2) return;
 
-      // Step 1: try 4 columns before shrinking fonts
-      if (autoColumns < 4) {
-        setAutoColumns(4);
+      // Step 1: add columns one at a time before shrinking fonts
+      if (announceColumnCount < 4) {
+        setAutoColumns(announceColumnCount + 1);
         return;
       }
       // Step 2: shrink fonts as last resort
@@ -363,7 +369,7 @@ const BulletinPrintLayout = forwardRef<HTMLDivElement, { data: any, refs?: { pag
       }
     }, 100);
     return () => clearTimeout(timer);
-  }, [announceFitScale, autoColumns, announcementsContentKey]);
+  }, [announceFitScale, autoColumns, announceColumnCount, announcementsContentKey, data.printFontScale, data.printTightMargins]);
 
   // Detect when content is still cut off after auto-fit (for the warning banner)
   useEffect(() => {
@@ -741,8 +747,7 @@ const BulletinPrintLayout = forwardRef<HTMLDivElement, { data: any, refs?: { pag
                   return groups;
                 }, {});
 
-                const defaultCols = announcementCount <= 2 || isLightContent ? 1 : (announcementCount >= 6 || isHeavyContent) ? 4 : announcementCount >= 4 ? 3 : 2;
-                const columnCount = autoColumns > 0 ? Math.max(autoColumns, defaultCols) : defaultCols;
+                const columnCount = announceColumnCount;
                 const gap = tight ? '0.35rem' : '0.5rem';
 
                 const densityScale = isHeavyContent ? 0.8 : isLightContent ? 1.4 : 1;
@@ -754,7 +759,7 @@ const BulletinPrintLayout = forwardRef<HTMLDivElement, { data: any, refs?: { pag
                 const contentFontSize = scalePx(Math.round(baseContent * announceFitScale));
 
                 return (
-                  <div style={{ columnCount, columnGap: gap, columnFill: 'auto', height: '100%' }}>
+                  <div style={{ columnCount, columnGap: gap, columnFill: 'balance', height: '100%' }}>
                     {Object.entries(grouped).map(([audienceLabel, announcements], groupIdx) => (
                       <div key={audienceLabel} style={{ marginBottom: groupIdx < Object.keys(grouped).length - 1 ? (isLightContent ? '1rem' : tight ? '0.125rem' : '0.25rem') : 0 }}>
                         <ul style={{ display: 'flex', flexDirection: 'column', gap: isLightContent ? '0.75rem' : tight ? '0.125rem' : '0.25rem' }}>
@@ -925,7 +930,7 @@ const BulletinPrintLayout = forwardRef<HTMLDivElement, { data: any, refs?: { pag
                 item.type === 'speaker' ? (
                   <ProgramTableRow key={idx} label={item.customLabel || (item.speakerType === 'youth' ? t('bulletin.youthSpeaker') : t('bulletin.speaker'))} value={item.name} />
                 ) : item.type === 'musical' ? (
-                  <ProgramTableRow key={idx} label={item.label === 'Intermediate Hymn' ? t('form.intermediateHymn') : t('bulletin.musicalNumber')} value={item.hymnNumber || item.songName} extra={item.hymnTitle} />
+                  <ProgramTableRow key={idx} label={item.label === 'Intermediate Hymn' ? t('form.intermediateHymn') : t('bulletin.musicalNumber')} value={item.hymnNumber || item.songName} extra={item.hymnTitle} extra2={item.performers} />
                 ) : item.type === 'testimony' ? (
                   <React.Fragment key={idx}>
                     <tr>
@@ -1058,7 +1063,7 @@ function PrintQRCode({ profileSlug, size = 128 }: { profileSlug: string; size?: 
 
 export default React.memo(BulletinPrintLayout);
 
-function ProgramTableRow({ label, value, extra }: { label: string, value?: string, extra?: string }) {
+function ProgramTableRow({ label, value, extra, extra2 }: { label: string, value?: string, extra?: string, extra2?: string }) {
   return (
     <>
       <tr>
@@ -1072,6 +1077,11 @@ function ProgramTableRow({ label, value, extra }: { label: string, value?: strin
       {extra && (
         <tr>
           <td colSpan={3} className="pt-0 text-center italic text-black text-sm print:!text-base print:!text-black">{extra}</td>
+        </tr>
+      )}
+      {extra2 && (
+        <tr>
+          <td colSpan={3} className="pt-0 text-center italic text-black text-sm print:!text-base print:!text-black">{extra2}</td>
         </tr>
       )}
     </>
