@@ -1610,9 +1610,10 @@ function BulletinForm({ data, onChange, profileSlug, userId, allImages: external
                         className="flex-1 min-w-[120px] max-w-xs px-3 py-2 border border-gray-300 rounded-lg"
                       />
                     ) : (
-                      <select value={item.speakerType || 'adult'} onChange={e => updateAgendaItem(item.id, { speakerType: e.target.value as 'youth' | 'adult' })} className="px-2 py-1 border rounded-lg min-w-[120px]">
+                      <select value={item.speakerType || 'adult'} onChange={e => updateAgendaItem(item.id, { speakerType: e.target.value as 'youth' | 'adult' | 'highCouncil' })} className="px-2 py-1 border rounded-lg min-w-[120px]">
                         <option value="youth">{t('bulletin.youthSpeaker')}</option>
                         <option value="adult">{t('bulletin.speaker')}</option>
+                        <option value="highCouncil">{t('bulletin.highCouncilSpeaker')}</option>
                       </select>
                     )}
                   </>
