@@ -687,7 +687,7 @@ function BulletinPreview({
                 <div key={idx} className="space-y-1">
                   {item.type === 'speaker' && (
                     <DottedLine rightAlign={item.name}>
-                      <span>{item.customLabel || (item.speakerType === 'youth' ? t('bulletin.youthSpeaker') : t('bulletin.speaker'))}</span>
+                      <span>{item.customLabel || (item.speakerType === 'youth' ? t('bulletin.youthSpeaker') : item.speakerType === 'highCouncil' ? t('bulletin.highCouncilSpeaker') : t('bulletin.speaker'))}</span>
                     </DottedLine>
                   )}
                   {item.type === 'musical' && (

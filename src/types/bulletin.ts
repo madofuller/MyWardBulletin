@@ -81,7 +81,7 @@ export interface Speaker {
 }
 
 export type AgendaItem =
-  | { type: 'speaker'; id: string; name: string; speakerType: 'youth' | 'adult'; customLabel?: string }
+  | { type: 'speaker'; id: string; name: string; speakerType: 'youth' | 'adult' | 'highCouncil'; customLabel?: string }
   | { type: 'musical'; id: string; label?: string; hymnNumber?: string; hymnTitle?: string; hymnType?: SongType; songName?: string; performers?: string }
   | { type: 'testimony'; id: string; note?: string }
   | { type: 'sacrament'; id: string }
