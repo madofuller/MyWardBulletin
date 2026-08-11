@@ -17,7 +17,7 @@ import {
   getUnitNameLabel,
   getUnitLeadershipLabel,
   getUnitMissionariesLabel,
-  getAudienceDisplayName,
+  getTranslatedAudienceDisplayName,
   getAudienceValue,
   getTranslatedUnitLabel,
   getTranslatedUnitLowercase,
@@ -1862,7 +1862,7 @@ function BulletinForm({ data, onChange, profileSlug, userId, allImages: external
                 const isStandalone = isStandaloneAudience(audience);
                 const audienceLabel = isStandalone
                   ? 'Standalone'
-                  : (audienceOptions.find(opt => opt.value === audience)?.label || getAudienceDisplayName(audience));
+                  : (audienceOptions.find(opt => opt.value === audience)?.label || getTranslatedAudienceDisplayName(t, audience));
 
                 // Get the index of this group's first announcement in the full list for move operations
                 const allAudienceKeys = Object.keys(grouped);
@@ -1929,7 +1929,7 @@ function BulletinForm({ data, onChange, profileSlug, userId, allImages: external
                                   other unit type can hold a value not in today's options —
                                   include it so the select never renders blank. */}
                               {!audienceOptions.some(opt => opt.value === audience) && (
-                                <option value={audience}>{getAudienceDisplayName(audience)}</option>
+                                <option value={audience}>{getTranslatedAudienceDisplayName(t, audience)}</option>
                               )}
                               {audienceOptions.filter(opt => opt.value !== 'standalone').map(opt => (
                                 <option key={opt.value} value={opt.value}>{opt.label}</option>

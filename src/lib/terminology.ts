@@ -177,6 +177,44 @@ export function getTranslatedLeadershipBody(t: TFunction, unitTypeOverride?: Uni
 /**
  * Get the translated leader title (Bishop/Branch President)
  */
+/**
+ * Translated counterpart of getAudienceDisplayName. The untranslated version
+ * hardcodes English for the auxiliary organizations, so anything rendering an
+ * audience label through it stays English no matter the selected language.
+ * Case coverage must stay in sync with getAudienceDisplayName above.
+ */
+export function getTranslatedAudienceDisplayName(t: TFunction, audience: string, unitTypeOverride?: UnitType): string {
+  switch (audience) {
+    case 'ward':
+    case 'branch':
+      return getTranslatedUnitLabel(t, unitTypeOverride);
+    case 'stake':
+    case 'district':
+    case 'district/stake':
+      return getTranslatedHigherUnitLabel(t, unitTypeOverride);
+    case 'relief_society':
+      return t('terminology.reliefSociety');
+    case 'elders_quorum':
+      return t('terminology.eldersQuorum');
+    case 'young_women':
+      return t('terminology.youngWomen');
+    case 'young_men':
+      return t('terminology.youngMen');
+    case 'youth':
+      return t('terminology.youth');
+    case 'primary':
+      return t('terminology.primary');
+    case 'sunday_school':
+      return t('terminology.sundaySchool');
+    case 'gospel_doctrine':
+      return t('terminology.gospelDoctrine');
+    case 'other':
+      return t('common.other');
+    default:
+      return audience;
+  }
+}
+
 export function getTranslatedLeaderTitle(t: TFunction, unitTypeOverride?: UnitType): string {
   const unitType = unitTypeOverride || (typeof window !== 'undefined' ? localStorage.getItem('selectedUnitType') as UnitType : 'ward') || 'ward';
   return unitType === 'branch' ? t('terminology.branchPresident') : t('terminology.bishop');
