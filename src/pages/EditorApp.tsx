@@ -963,21 +963,12 @@ function EditorApp() {
     window.history.pushState({}, '', '/');
   };
 
-  const handleSaveBulletin = async () => {
-    if (!user) {
-      // Save draft before showing auth modal
-      await robustService.saveDraftBeforeAuth(bulletinData);
-      setShowAuthModal(true);
-      return;
-    }
-
-    // Check if there are actually changes to save
-    if (!hasUnsavedChanges) {
-      toast.info(t('common.noChangesToSave', 'No changes to save'), {
-        toastId: 'no-changes-to-save'
-      });
-      return;
-    }
+  // Core cloud save. Takes the data snapshot explicitly instead of reading
+  // bulletinData from the closure, so callers that just built a new state
+  // object (e.g. auto-save on submission approval) can persist it without
+  // waiting for a re-render.
+  const saveBulletinToCloud = async (dataToSave: BulletinData) => {
+    if (!user) return;
 
     try {
       const { data, error } = await supabase.auth.refreshSession();
@@ -1001,7 +992,7 @@ function EditorApp() {
         if (sessionError) {
         }
         const savedBulletin = await retryOperation(() => bulletinService.saveBulletin(
-          bulletinData,
+          dataToSave,
           user.id,
           currentBulletinId || undefined,
           currentProfileSlug || undefined
@@ -1052,7 +1043,7 @@ function EditorApp() {
       try {
         bulletinService.saveToLocalStorage({
           id: currentBulletinId || `local_${Date.now()}`,
-          ...bulletinData,
+          ...dataToSave,
           created_by: user.id,
           created_at: new Date().toISOString()
         });
@@ -1063,6 +1054,25 @@ function EditorApp() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveBulletin = async () => {
+    if (!user) {
+      // Save draft before showing auth modal
+      await robustService.saveDraftBeforeAuth(bulletinData);
+      setShowAuthModal(true);
+      return;
+    }
+
+    // Check if there are actually changes to save
+    if (!hasUnsavedChanges) {
+      toast.info(t('common.noChangesToSave', 'No changes to save'), {
+        toastId: 'no-changes-to-save'
+      });
+      return;
+    }
+
+    await saveBulletinToCloud(bulletinData);
   };
 
   const handleMakeActive = async () => {
@@ -2161,33 +2171,48 @@ function EditorApp() {
           onClose={() => setShowSubmissionReview(false)}
           profileSlug={currentProfileSlug || ''}
           onSubmissionApproved={(submission) => {
-            // Convert submission to announcement format
+            // Convert submission to announcement format. The submission form
+            // never sets a category, so fall back to 'general' rather than
+            // storing null on the announcement.
             const newAnnouncement = {
               id: Date.now().toString(),
               title: submission.title,
               content: submission.content,
-              category: submission.category,
+              category: submission.category || 'general',
               audience: submission.audience,
               date: submission.date
             };
 
             // Check if announcement already exists to prevent duplication
-            setBulletinData(prev => {
-              const existingAnnouncement = prev.announcements.find(
-                ann => ann.title === submission.title && ann.content === submission.content
-              );
-              
-              if (existingAnnouncement) {
-                toast.info(t('submissions.alreadyExistsInBulletin', '"{{title}}" already exists in the bulletin', { title: submission.title }));
-                return prev;
-              }
+            const existingAnnouncement = bulletinData.announcements.find(
+              ann => ann.title === submission.title && ann.content === submission.content
+            );
 
-              // Add to current bulletin
-              return {
-                ...prev,
-                announcements: [...prev.announcements, newAnnouncement]
-              };
-            });
+            if (existingAnnouncement) {
+              toast.info(t('submissions.alreadyExistsInBulletin', '"{{title}}" already exists in the bulletin', { title: submission.title }));
+              return;
+            }
+
+            // Add to the current bulletin through the normal edit path.
+            // A bare setBulletinData left hasUnsavedChanges false and wrote
+            // no local draft, so the background cloud-refresh effects (tab
+            // becomes visible, active-bulletin reload) saw a "clean" editor
+            // and replaced the state with the saved copy — silently deleting
+            // the just-approved announcement before the user ever saved it.
+            const nextData = {
+              ...bulletinData,
+              announcements: [...bulletinData.announcements, newAnnouncement]
+            };
+            handleBulletinDataChange(nextData);
+
+            // Auto-save so the approval reaches the saved bulletin without a
+            // separate Save click. On failure the unsaved-changes state and
+            // local draft set above still preserve the announcement for a
+            // manual save. Signed-out users have no cloud bulletin to save
+            // to; the local draft covers them.
+            if (user) {
+              saveBulletinToCloud(nextData);
+            }
 
             // Show success toast
             if (submission.title.trim()) {
