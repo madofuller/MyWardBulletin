@@ -2161,32 +2161,37 @@ function EditorApp() {
           onClose={() => setShowSubmissionReview(false)}
           profileSlug={currentProfileSlug || ''}
           onSubmissionApproved={(submission) => {
-            // Convert submission to announcement format
+            // Convert submission to announcement format. The submission form
+            // never sets a category, so fall back to 'general' rather than
+            // storing null on the announcement.
             const newAnnouncement = {
               id: Date.now().toString(),
               title: submission.title,
               content: submission.content,
-              category: submission.category,
+              category: submission.category || 'general',
               audience: submission.audience,
               date: submission.date
             };
 
             // Check if announcement already exists to prevent duplication
-            setBulletinData(prev => {
-              const existingAnnouncement = prev.announcements.find(
-                ann => ann.title === submission.title && ann.content === submission.content
-              );
-              
-              if (existingAnnouncement) {
-                toast.info(t('submissions.alreadyExistsInBulletin', '"{{title}}" already exists in the bulletin', { title: submission.title }));
-                return prev;
-              }
+            const existingAnnouncement = bulletinData.announcements.find(
+              ann => ann.title === submission.title && ann.content === submission.content
+            );
 
-              // Add to current bulletin
-              return {
-                ...prev,
-                announcements: [...prev.announcements, newAnnouncement]
-              };
+            if (existingAnnouncement) {
+              toast.info(t('submissions.alreadyExistsInBulletin', '"{{title}}" already exists in the bulletin', { title: submission.title }));
+              return;
+            }
+
+            // Add to the current bulletin through the normal edit path.
+            // A bare setBulletinData left hasUnsavedChanges false and wrote
+            // no local draft, so the background cloud-refresh effects (tab
+            // becomes visible, active-bulletin reload) saw a "clean" editor
+            // and replaced the state with the saved copy — silently deleting
+            // the just-approved announcement before the user ever saved it.
+            handleBulletinDataChange({
+              ...bulletinData,
+              announcements: [...bulletinData.announcements, newAnnouncement]
             });
 
             // Show success toast
