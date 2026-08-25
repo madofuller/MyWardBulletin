@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Plus, Trash2, Repeat, RotateCcw, GripVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { BulletinData, Announcement, AnnouncementImage, Meeting, SpecialEvent, AgendaItem } from '../types/bulletin';
+import { BulletinData, Announcement, AnnouncementImage, Meeting, SpecialEvent, AgendaItem, WardBusinessEntry } from '../types/bulletin';
 import { getSongTitle, isValidSongNumber, searchSongsByTitle, preloadSongData, SongType } from '../lib/songService';
 import { toast } from 'react-toastify';
 import HtmlEditor from './HtmlEditor';
@@ -31,6 +31,62 @@ interface BulletinFormProps {
   userId?: string;
   allImages?: any[];
   onImagesRefresh?: () => void;
+}
+
+// Top-level on purpose: defining this inside BulletinForm would give it a new
+// component identity every render, remounting the inputs and dropping focus
+// on each keystroke.
+function WardBusinessEntryList({ title, entries, callingPlaceholder, addLabel, onChange, makeId }: {
+  title: string;
+  entries: WardBusinessEntry[];
+  callingPlaceholder: string;
+  addLabel: string;
+  onChange: (entries: WardBusinessEntry[]) => void;
+  makeId: () => string;
+}) {
+  const { t } = useTranslation();
+  const update = (id: string, field: 'name' | 'calling', value: string) =>
+    onChange(entries.map(e => (e.id === id ? { ...e, [field]: value } : e)));
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="block text-sm font-medium text-gray-700">{title}</span>
+        <button
+          type="button"
+          onClick={() => onChange([...entries, { id: makeId(), name: '', calling: '' }])}
+          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+        >
+          + {addLabel}
+        </button>
+      </div>
+      {entries.map(entry => (
+        <div key={entry.id} className="flex flex-wrap gap-2 items-center">
+          <input
+            type="text"
+            value={entry.name}
+            onChange={e => update(entry.id, 'name', e.target.value)}
+            placeholder={t('form.personNamePlaceholder', 'Name')}
+            className="flex-1 min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <input
+            type="text"
+            value={entry.calling}
+            onChange={e => update(entry.id, 'calling', e.target.value)}
+            placeholder={callingPlaceholder}
+            className="flex-1 min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <button
+            type="button"
+            onClick={() => onChange(entries.filter(e => e.id !== entry.id))}
+            className="p-2 text-red-600 hover:bg-red-100 rounded-full"
+            aria-label={t('common.remove')}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function BulletinForm({ data, onChange, profileSlug, userId, allImages: externalAllImages, onImagesRefresh }: BulletinFormProps) {
@@ -474,7 +530,7 @@ function BulletinForm({ data, onChange, profileSlug, userId, allImages: external
   const [showAddSection, setShowAddSection] = useState(false);
   const addSectionRef = useRef<HTMLDivElement>(null);
 
-  const handleAddSection = (type: 'speaker' | 'musical' | 'testimony' | 'sacrament' | 'baby_blessing' | 'baptism_ordinance' | 'confirmation') => {
+  const handleAddSection = (type: 'speaker' | 'musical' | 'testimony' | 'sacrament' | 'baby_blessing' | 'baptism_ordinance' | 'confirmation' | 'ward_business') => {
     if (type === 'speaker') {
       updateField('agenda', [
         ...data.agenda,
@@ -495,6 +551,8 @@ function BulletinForm({ data, onChange, profileSlug, userId, allImages: external
       updateField('agenda', [...data.agenda, { id: generateUniqueId(), type: 'baptism_ordinance', candidateName: '', performedBy: '' }]);
     } else if (type === 'confirmation') {
       updateField('agenda', [...data.agenda, { id: generateUniqueId(), type: 'confirmation', candidateName: '', performedBy: '' }]);
+    } else if (type === 'ward_business') {
+      updateField('agenda', [...data.agenda, { id: generateUniqueId(), type: 'ward_business', releases: [], sustainings: [], ordinations: [], newMembers: '' }]);
     }
     setShowAddSection(false);
   };
@@ -1598,6 +1656,51 @@ function BulletinForm({ data, onChange, profileSlug, userId, allImages: external
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
+                ) : item.type === 'ward_business' ? (
+                  <div className="w-full space-y-4">
+                    <div>
+                      <span className="block w-full text-center font-bold text-lg text-gray-700 py-2">
+                        {t('bulletin.unitBusiness', { unit: getTranslatedUnitLabel(t) })}
+                      </span>
+                      <p className="text-xs text-gray-500 text-center">
+                        {t('form.wardBusinessPrivateNote', 'Names entered here appear only on the conducting agenda, never on the public bulletin.')}
+                      </p>
+                    </div>
+                    <WardBusinessEntryList
+                      title={t('form.releases', 'Releases')}
+                      entries={item.releases || []}
+                      callingPlaceholder={t('form.callingPlaceholder', 'Calling')}
+                      addLabel={t('form.addRelease', 'Add release')}
+                      onChange={entries => updateAgendaItem(item.id, { releases: entries })}
+                      makeId={generateUniqueId}
+                    />
+                    <WardBusinessEntryList
+                      title={t('form.sustainings', 'Sustainings')}
+                      entries={item.sustainings || []}
+                      callingPlaceholder={t('form.callingPlaceholder', 'Calling')}
+                      addLabel={t('form.addSustaining', 'Add sustaining')}
+                      onChange={entries => updateAgendaItem(item.id, { sustainings: entries })}
+                      makeId={generateUniqueId}
+                    />
+                    <WardBusinessEntryList
+                      title={t('form.ordinations', 'Priesthood Ordinations')}
+                      entries={item.ordinations || []}
+                      callingPlaceholder={t('form.officePlaceholder', 'Office (e.g., Deacon)')}
+                      addLabel={t('form.addOrdination', 'Add ordination')}
+                      onChange={entries => updateAgendaItem(item.id, { ordinations: entries })}
+                      makeId={generateUniqueId}
+                    />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.newMembers', 'New Members')}</label>
+                      <input
+                        type="text"
+                        value={item.newMembers || ''}
+                        onChange={e => updateAgendaItem(item.id, { newMembers: e.target.value })}
+                        placeholder={t('form.newMembersPlaceholder', 'Names of new members to welcome')}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
                 ) : item.type === 'speaker' ? (
                   <>
                     <input type="text" value={item.name || ''} onChange={e => updateAgendaItem(item.id, { name: e.target.value })} placeholder={t('form.speakerName')} className="flex-1 min-w-[120px] max-w-xs px-3 py-2 border border-gray-300 rounded-lg" />
@@ -1797,6 +1900,13 @@ function BulletinForm({ data, onChange, profileSlug, userId, allImages: external
                 className="px-4 py-3 bg-teal-600 text-white rounded-lg text-base font-medium hover:bg-teal-700 transition-colors"
               >
                 {t('form.addConfirmation')}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAddSection('ward_business')}
+                className="px-4 py-3 bg-indigo-600 text-white rounded-lg text-base font-medium hover:bg-indigo-700 transition-colors"
+              >
+                {t('form.addWardBusiness', 'Add {{unit}} Business', { unit: getTranslatedUnitLabel(t) })}
               </button>
             </div>
           </section>

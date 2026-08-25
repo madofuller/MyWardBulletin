@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Download, QrCode, LogIn, Menu, X, MessageSquare, Repeat, Paintbrush, Printer, Clock, Archive, Settings, Users } from 'lucide-react';
+import { Plus, Download, QrCode, LogIn, Menu, X, MessageSquare, Repeat, Paintbrush, Printer, Clock, Archive, Settings, Users, Mic } from 'lucide-react';
 import UnitTypeSelector from '../components/TerminologyToggle';
 import LanguageSelector from '../components/LanguageSelector';
 import { getCurrentUnitType, isUnloadWarningSuppressed } from '../lib/config';
@@ -23,6 +23,7 @@ import TemplatesModal from '../components/TemplatesModal';
 import { BUILT_IN_TEMPLATES, type BuiltInTemplate } from '../data/builtInTemplates';
 import ThemeModal from '../components/ThemeModal';
 import PrintPreviewModal from '../components/PrintPreviewModal';
+import ConductingAgendaModal from '../components/ConductingAgendaModal';
 import ProfileModal from '../components/ProfileModal';
 import PublicBulletinView from '../components/PublicBulletinView';
 import SubmissionReviewModal from '../components/SubmissionReviewModal';
@@ -209,6 +210,7 @@ function EditorApp() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showPrintPreviewModal, setShowPrintPreviewModal] = useState(false);
+  const [showConductingAgenda, setShowConductingAgenda] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showSubmissionReview, setShowSubmissionReview] = useState(false);
   const [showScheduler, setShowScheduler] = useState(false);
@@ -1955,6 +1957,13 @@ function EditorApp() {
                     <span className="sm:hidden">{t('common.print')}</span>
                   </button>
                   <button
+                    onClick={() => setShowConductingAgenda(true)}
+                    className="inline-flex items-center justify-center px-3 sm:px-4 py-2 bg-gray-200 text-gray-800 rounded-full hover:bg-gray-300 transition-colors text-sm sm:text-base"
+                  >
+                    <Mic className="w-4 h-4 mr-2" />
+                    {t('conducting.title', 'Conducting Agenda')}
+                  </button>
+                  <button
                     onClick={() => setShowThemeModal(true)}
                     className="inline-flex items-center justify-center px-3 sm:px-4 py-2 bg-gray-200 text-gray-800 rounded-full hover:bg-gray-300 transition-colors text-sm sm:text-base"
                   >
@@ -2245,6 +2254,13 @@ function EditorApp() {
           bulletinData={bulletinData}
           onUpdateData={handleBulletinDataChange}
           onExportPDF={handleExportPDF}
+        />
+
+        {/* Conducting Agenda Modal — editor-only, never on the public bulletin */}
+        <ConductingAgendaModal
+          isOpen={showConductingAgenda}
+          onClose={() => setShowConductingAgenda(false)}
+          data={bulletinData}
         />
 
         {/* Print source: rendered via portal as direct child of <body> so @media print can isolate it */}

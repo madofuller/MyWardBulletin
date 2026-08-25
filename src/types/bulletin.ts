@@ -80,6 +80,14 @@ export interface Speaker {
   type: 'youth' | 'adult';
 }
 
+// One row of ward business (a release, sustaining, or ordination).
+// `calling` holds the calling name — or the priesthood office for ordinations.
+export interface WardBusinessEntry {
+  id: string;
+  name: string;
+  calling: string;
+}
+
 export type AgendaItem =
   | { type: 'speaker'; id: string; name: string; speakerType: 'youth' | 'adult' | 'highCouncil'; customLabel?: string }
   | { type: 'musical'; id: string; label?: string; hymnNumber?: string; hymnTitle?: string; hymnType?: SongType; songName?: string; performers?: string }
@@ -87,7 +95,12 @@ export type AgendaItem =
   | { type: 'sacrament'; id: string }
   | { type: 'baby_blessing'; id: string; childName?: string; parentNames?: string }
   | { type: 'baptism_ordinance'; id: string; candidateName?: string; performedBy?: string }
-  | { type: 'confirmation'; id: string; candidateName?: string; performedBy?: string };
+  | { type: 'confirmation'; id: string; candidateName?: string; performedBy?: string }
+  // Ward business (releases, sustainings, new members, ordinations). The
+  // public bulletin shows only a "Ward Business" line — names appear solely
+  // on the private conducting agenda, since business is not announced ahead
+  // of the meeting.
+  | { type: 'ward_business'; id: string; releases?: WardBusinessEntry[]; sustainings?: WardBusinessEntry[]; ordinations?: WardBusinessEntry[]; newMembers?: string };
 
 export interface UnitLeadershipEntry {
   title: string;
