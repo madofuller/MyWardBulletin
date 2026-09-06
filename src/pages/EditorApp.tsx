@@ -906,26 +906,43 @@ function EditorApp() {
       }
     };
     fetchInitialBulletin();
-  }, [user, activeBulletinId, currentProfileSlug]);
+    // Keyed on user.id, not the user object: supabase emits a fresh session
+    // (and thus a new user object) on every TOKEN_REFRESHED / SIGNED_IN event,
+    // including routine hourly refreshes and tab-focus recovery. Re-running
+    // this loader on those events replaced a saved, non-active bulletin the
+    // user was editing with the active one, so later saves went to the wrong
+    // week.
+  }, [user?.id, activeBulletinId, currentProfileSlug]);
 
   // When the user returns to a tab that has been sitting open (e.g. Sunday
   // morning, tab from last week), re-check the server for the active bulletin
   // so the editor catches scheduled activations and edits from other devices.
   // Never runs while there are unsaved local changes, so it cannot clobber
   // in-progress work. Throttled to one check per minute.
+  //
+  // Only refreshes when the editor is already showing the active bulletin.
+  // A user working on a different bulletin (e.g. next week's, freshly saved
+  // so there are no unsaved changes) must never have it silently swapped for
+  // the currently active one just because they tabbed away to copy text —
+  // that swap redirected their subsequent saves to the wrong bulletin.
   const lastVisibleRefreshRef = useRef(0);
   useEffect(() => {
     const handleVisible = async () => {
       if (document.visibilityState !== 'visible') return;
       if (!user || hasUnsavedChanges || !currentProfileSlug) return;
+      if (!currentBulletinId || currentBulletinId !== activeBulletinId) return;
       const now = Date.now();
       if (now - lastVisibleRefreshRef.current < 60 * 1000) return;
       lastVisibleRefreshRef.current = now;
       try {
         const activeId = await getActiveBulletinForCurrentProfile(currentProfileSlug);
         if (!activeId) return;
+        // The user may have loaded another bulletin, or started typing, while
+        // the request was in flight. Re-check against the latest values.
+        if (currentBulletinIdRef.current !== currentBulletinId) return;
         const bulletin = await bulletinService.getBulletinById(activeId);
         if (!bulletin) return;
+        if (currentBulletinIdRef.current !== currentBulletinId) return;
         setBulletinData(convertDbBulletinToData(bulletin));
         setCurrentBulletinId(bulletin.id);
         setActiveBulletinId(activeId);
@@ -938,7 +955,7 @@ function EditorApp() {
     };
     document.addEventListener('visibilitychange', handleVisible);
     return () => document.removeEventListener('visibilitychange', handleVisible);
-  }, [user, hasUnsavedChanges, currentProfileSlug, clearLocalDraft]);
+  }, [user, hasUnsavedChanges, currentProfileSlug, currentBulletinId, activeBulletinId, clearLocalDraft]);
 
   const handleCreateProfileSlug = async () => {
     if (!newProfileSlug.trim() || !user) return;
